@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MPI IPAS - Keanekaragaman Hayati Indonesia</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!--
+=====================================================================
+ CARA MENGHUBUNGKAN NILAI KE GOOGLE SHEET (spreadsheet online)
+ 1. Buat Google Sheet baru > Extensions (Ekstensi) > Apps Script.
+ 2. Tempel kode di bawah ini, lalu Deploy > New deployment > Web app
+    (Execute as: Me, Who has access: Anyone). Salin URL Web App.
+ 3. Tempel URL itu pada konstanta SHEET_URL di bagian <script> di bawah.
+
+ function doPost(e){
+   var d = JSON.parse(e.postData.contents);
+   var sh = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+   if(sh.getLastRow()===0) sh.appendRow(['Waktu','Nama','Kelas','Skor','Benar','Predikat','Mapel','Topik']);
+   sh.appendRow([d.waktu,d.nama,d.kelas,d.skor,d.benar,d.predikat,d.mapel,d.topik]);
+   return ContentService.createTextOutput('OK');
+ }
+=====================================================================
+-->
+<style>
+  html,body{margin:0;min-height:100%;}
+  body{
+    font-family:'Trebuchet MS','Segoe UI',Verdana,sans-serif;
+    background:linear-gradient(160deg,#dbeafe 0%,#bfdbfe 45%,#93c5fd 100%);
+    background-attachment:fixed;color:#0f2a55;
+  }
+  .screen{display:none;min-height:100vh;padding:72px 16px 32px;flex-direction:column;align-items:center;}
+  .screen.active{display:flex;animation:fadeIn .4s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes pop{0%{opacity:0;transform:scale(.2) translateY(40px)}70%{transform:scale(1.12)}100%{opacity:1;transform:none}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  @keyframes fall{from{transform:translateY(-10vh) rotate(0)}to{transform:translateY(110vh) rotate(540deg)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  @keyframes pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+  .pop{animation:pop .8s cubic-bezier(.2,.9,.3,1.2) both}
+  .floaty{animation:float 3.5s ease-in-out infinite}
+  .shake{animation:shake .4s}
+  .pulse2{animation:pulse2 1.6s ease-in-out infinite}
+
+  /* Efek hover HANYA pada tombol */
+  button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;}
+  .btn{background:#2563eb;color:#fff;font-weight:800;border-radius:16px;padding:12px 22px;
+       box-shadow:0 5px 0 #1e3a8a;transition:transform .15s,background .15s,box-shadow .15s;border:0;}
+  .btn:hover{background:#3b82f6;transform:translateY(-2px);box-shadow:0 7px 0 #1e3a8a;}
+  .btn:active{transform:translateY(3px);box-shadow:0 2px 0 #1e3a8a;}
+  .btn:disabled{background:#94a3b8;box-shadow:0 5px 0 #64748b;cursor:not-allowed;transform:none;}
+  .btn-light{background:#fff;color:#1d4ed8;box-shadow:0 5px 0 #93c5fd;}
+  .btn-light:hover{background:#eff6ff;box-shadow:0 7px 0 #93c5fd;}
+  .btn-green{background:#16a34a;box-shadow:0 5px 0 #166534;}
+  .btn-green:hover{background:#22c55e;box-shadow:0 7px 0 #166534;}
+  .btn-sky{background:#0ea5e9;box-shadow:0 5px 0 #075985;}
+  .btn-sky:hover{background:#38bdf8;box-shadow:0 7px 0 #075985;}
+  .card{background:#fff;border:3px solid #bfdbfe;border-radius:22px;box-shadow:0 6px 18px rgba(30,64,175,.15);}
+  input,select{user-select:text;-webkit-user-select:text;}
+  .opt{display:block;width:100%;text-align:left;background:#fff;border:3px solid #bfdbfe;border-radius:14px;padding:12px 16px;font-weight:700;color:#0f2a55;transition:background .15s,transform .15s;}
+  .opt:hover:not(:disabled){background:#dbeafe;transform:translateX(3px);}
+  .opt.ok{background:#bbf7d0;border-color:#16a34a;}
+  .opt.bad{background:#fecaca;border-color:#dc2626;}
+  .blank{display:inline-block;min-width:110px;border-bottom:4px dashed #2563eb;background:#eff6ff;border-radius:10px 10px 0 0;padding:2px 10px;text-align:center;font-weight:800;color:#1d4ed8;vertical-align:middle;margin:0 3px;cursor:pointer;}
+  .blank.ok{background:#bbf7d0;border-bottom-color:#16a34a;}
+  .blank.bad{background:#fecaca;border-bottom-color:#dc2626;}
+  .blank.over{background:#dbeafe;}
+  .chip{background:#2563eb;color:#fff;font-weight:800;border-radius:12px;padding:8px 16px;border:0;box-shadow:0 4px 0 #1e3a8a;}
+  .chip:hover:not(:disabled){background:#3b82f6;}
+  .chip.sel{outline:4px solid #facc15;}
+  .chip:disabled{opacity:.25;cursor:default;box-shadow:none;}
+  .tok{border:2px solid transparent;background:#fff;border-radius:10px;padding:4px 10px;margin:3px;font-weight:700;font-size:1.05rem;color:#0f2a55;}
+  .tok:hover{background:#dbeafe;}
+  .tok.mark{background:#fde047;border-color:#ca8a04;}
+  .tok.ok{background:#bbf7d0;border-color:#16a34a;}
+  .tok.bad{background:#fecaca;border-color:#dc2626;}
+  .tok.miss{background:#fff;border-color:#16a34a;border-style:dashed;}
+  .mcard{height:92px;border-radius:16px;font-weight:800;border:3px solid #1d4ed8;font-size:.95rem;padding:4px;transition:transform .15s,background .15s;}
+  .mcard.down{background:#2563eb;color:#fff;font-size:2rem;}
+  .mcard.down:hover{background:#3b82f6;}
+  .mcard.up{background:#fff;color:#0f2a55;}
+  .mcard.done{background:#bbf7d0;border-color:#16a34a;color:#14532d;}
+  .tile{background:#fff;border:3px solid #2563eb;color:#1d4ed8;font-weight:900;font-size:1.5rem;border-radius:12px;width:48px;height:52px;box-shadow:0 4px 0 #93c5fd;}
+  .tile:hover:not(:disabled){background:#dbeafe;}
+  .tile:disabled{opacity:.25;cursor:default;}
+  .slot{display:inline-flex;align-items:center;justify-content:center;width:48px;height:52px;border-bottom:4px solid #2563eb;font-size:1.5rem;font-weight:900;color:#1d4ed8;margin:3px;background:#eff6ff;border-radius:10px 10px 0 0;}
+  .tabbtn{background:#fff;color:#1d4ed8;border:3px solid #93c5fd;border-radius:14px;padding:8px 14px;font-weight:800;transition:background .15s;}
+  .tabbtn:hover{background:#dbeafe;}
+  .tabbtn.on{background:#2563eb;color:#fff;border-color:#1e3a8a;}
+  .reveal{background:#fff;border:3px solid #bfdbfe;border-radius:20px;padding:14px;text-align:left;width:100%;transition:background .15s,border-color .15s;box-shadow:0 4px 12px rgba(30,64,175,.12);}
+  .reveal:hover{border-color:#3b82f6;}
+  .reveal.open{background:#eff6ff;border-color:#2563eb;}
+  .reveal .detail{display:none;margin-top:10px;font-weight:500;line-height:1.5;color:#1e3a8a;}
+  .reveal.open .detail{display:block;animation:fadeIn .3s;}
+  .bar{height:12px;background:#dbeafe;border-radius:99px;overflow:hidden;}
+  .bar>div{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:99px;transition:width .4s;}
+  .confetti{position:fixed;top:0;font-size:1.8rem;pointer-events:none;z-index:100;animation:fall 3s linear forwards;}
+  input[type=range]{width:100%;accent-color:#2563eb;}
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1e3a8a;color:#fff;padding:10px 20px;border-radius:99px;font-weight:700;z-index:90;display:none;}
+  @media print{
+    body *{visibility:hidden}
+    #certCanvas,#certCanvas *{visibility:visible}
+    #certCanvas{position:fixed;left:0;top:0;width:100%!important;height:auto!important}
+    @page{size:landscape;margin:0}
+  }
+</style>
+</head>
+<body>
+
+<!-- Dekorasi latar -->
+<div aria-hidden="true" style="position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none">
+  <div class="floaty" style="position:absolute;top:12%;left:6%;font-size:3rem;opacity:.35">🌿</div>
+  <div class="floaty" style="position:absolute;top:60%;left:10%;font-size:3rem;opacity:.3;animation-delay:1s">🦜</div>
+  <div class="floaty" style="position:absolute;top:20%;right:8%;font-size:3rem;opacity:.35;animation-delay:.5s">🌺</div>
+  <div class="floaty" style="position:absolute;top:70%;right:6%;font-size:3rem;opacity:.3;animation-delay:1.5s">🦎</div>
+</div>
+
+<!-- Tombol HOME permanen -->
+<button id="homeBtn" class="btn" style="position:fixed;top:12px;left:12px;z-index:70;padding:8px 16px;display:none">🏠 HOME</button>
+
+<!-- ============ SPLASH ============ -->
+<section id="splash" class="screen active" style="justify-content:center;text-align:center;padding-top:32px">
+  <div class="pop" style="font-size:5rem;animation-delay:.1s">🌏</div>
+  <p class="pop" style="animation-delay:.3s;font-weight:800;letter-spacing:.25em;color:#1d4ed8" >MEDIA PEMBELAJARAN INTERAKTIF</p>
+  <h1 class="pop" style="animation-delay:.5s;font-weight:900;font-size:clamp(2.4rem,9vw,5.5rem);line-height:1.05;color:#1e3a8a;text-shadow:3px 3px 0 #fff;margin:10px 0">KEANEKARAGAMAN<br>HAYATI INDONESIA</h1>
+  <p class="pop" style="animation-delay:.8s;font-weight:700;font-size:1.2rem;color:#1d4ed8">IPAS • Kelas 1 SMK</p>
+  <button id="startBtn" class="btn pop pulse2" style="animation-delay:1.1s,2s;font-size:2rem;padding:16px 56px;margin-top:28px">▶ MULAI</button>
+  <p class="pop" style="animation-delay:1.4s;margin-top:36px;font-weight:700;color:#1e3a8a">Pengembang: Siti Fatonah S.Si | Tahun 2026</p>
+</section>
+
+<!-- ============ MENU UTAMA ============ -->
+<section id="menu" class="screen">
+  <button id="settingsBtn" class="btn btn-light" style="position:fixed;top:12px;right:12px;z-index:70;padding:8px 16px">⚙️ Setting</button>
+  <h2 style="font-weight:900;font-size:clamp(1.8rem,6vw,3rem);color:#1e3a8a;text-align:center;margin-top:8px">MENU UTAMA</h2>
+  <p style="font-weight:700;color:#1d4ed8;margin-bottom:22px;text-align:center">Keanekaragaman Hayati Indonesia</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;width:100%;max-width:760px">
+    <button class="btn" data-go="beranda" style="font-size:1.5rem;padding:30px 10px">🏝️<br>BERANDA</button>
+    <button class="btn" data-go="materi" style="font-size:1.5rem;padding:30px 10px">📖<br>MATERI</button>
+    <button class="btn" data-go="simulasi" style="font-size:1.5rem;padding:30px 10px">📝<br>SIMULASI</button>
+    <button class="btn" data-go="kuis" style="font-size:1.5rem;padding:30px 10px">🎮<br>KUIS</button>
+  </div>
+  <p style="margin-top:auto;padding-top:30px;font-weight:700;color:#1e3a8a;text-align:center">Pengembang: Siti Fatonah S.Si | Tahun 2026</p>
+</section>
+
+<!-- ============ BERANDA ============ -->
+<section id="beranda" class="screen">
+  <div class="card" style="width:100%;max-width:800px;padding:24px">
+    <h2 style="font-weight:900;font-size:2rem;color:#1e3a8a">🏝️ Selamat Datang!</h2>
+    <p style="margin-top:8px;line-height:1.6">Indonesia adalah salah satu negara dengan keanekaragaman hayati tertinggi di dunia. Yuk, kenali kekayaan flora dan fauna tanah air kita!</p>
+    <h3 style="font-weight:800;margin-top:16px;color:#1d4ed8">🎯 Tujuan Pembelajaran</h3>
+    <p style="line-height:1.6">Siswa dapat <b>mengidentifikasi</b> dan <b>mendeskripsikan</b> contoh keanekaragaman hayati di Indonesia.</p>
+    <h3 style="font-weight:800;margin-top:16px;color:#1d4ed8">🧭 Petunjuk Penggunaan</h3>
+    <ol style="line-height:1.8;padding-left:22px;list-style:decimal">
+      <li><b>MATERI</b> – pelajari konsep, flora, fauna, persebaran, dan pelestarian.</li>
+      <li><b>KUIS</b> – mainkan 4 game seru, setiap game punya beberapa level.</li>
+      <li><b>SIMULASI</b> – kerjakan 10 soal uji pemahaman. Nilaimu tercatat dan kamu mendapat sertifikat.</li>
+      <li>Atur musik dan volume lewat tombol <b>⚙️ Setting</b> di Menu Utama.</li>
+      <li>Tombol <b>🏠 HOME</b> di kiri atas selalu membawamu kembali ke menu.</li>
+    </ol>
+    <div style="text-align:center;margin-top:18px"><button class="btn" data-go="materi">Mulai Belajar ➜</button></div>
+    <p style="margin-top:20px;text-align:center;font-weight:700;color:#1e3a8a">Pengembang: Siti Fatonah S.Si | Tahun 2026</p>
+  </div>
+</section>
+
+<!-- ============ MATERI ============ -->
+<section id="materi" class="screen">
+  <div style="width:100%;max-width:900px">
+    <h2 style="font-weight:900;font-size:2rem;color:#1e3a8a;text-align:center">📖 MATERI</h2>
+    <div class="bar" style="margin:10px 0"><div id="mProg" style="width:0%"></div></div>
+    <p id="mProgTxt" style="text-align:center;font-weight:700;font-size:.9rem;color:#1d4ed8"></p>
+    <div id="mTabs" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0"></div>
+    <div id="mBody"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:18px;gap:10px">
+      <button id="mPrev" class="btn btn-light">⬅ Sebelumnya</button>
+      <button id="mNext" class="btn">Berikutnya ➡</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SIMULASI ============ -->
+<section id="simulasi" class="screen">
+  <div style="width:100%;max-width:820px">
+    <!-- Intro + input nama (statis, tidak pernah dirender ulang) -->
+    <div id="simIntro" class="card" style="padding:24px;text-align:center">
+      <h2 style="font-weight:900;font-size:2rem;color:#1e3a8a">📝 SIMULASI</h2>
+      <p style="margin:8px 0 16px;line-height:1.6">10 soal uji pemahaman: <b>Drag the Word</b>, <b>Pilihan Ganda</b>, dan <b>Mark the Word</b>. Masukkan namamu terlebih dahulu.</p>
+      <div style="text-align:left;max-width:420px;margin:0 auto">
+        <label for="inpNama" style="font-weight:800">Nama Siswa</label>
+        <input id="inpNama" type="text" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="40" placeholder="Ketik nama lengkapmu..."
+               style="width:100%;margin:4px 0 12px;padding:12px 14px;border:3px solid #60a5fa;border-radius:14px;font-size:1.1rem;font-family:inherit;color:#0f2a55;background:#fff;outline:none">
+        <label for="inpKelas" style="font-weight:800">Kelas / Jurusan (opsional)</label>
+        <input id="inpKelas" type="text" autocomplete="off" spellcheck="false" maxlength="30" placeholder="contoh: X TKJ 1"
+               style="width:100%;margin:4px 0 12px;padding:12px 14px;border:3px solid #60a5fa;border-radius:14px;font-size:1.1rem;font-family:inherit;color:#0f2a55;background:#fff;outline:none">
+      </div>
+      <button id="simStart" class="btn" style="font-size:1.3rem">Mulai Simulasi ➜</button>
+    </div>
+    <div id="simPlay" style="display:none"></div>
+    <div id="simResult" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ============ KUIS ============ -->
+<section id="kuis" class="screen">
+  <div id="kuisBody" style="width:100%;max-width:900px"></div>
+</section>
+
+<!-- Modal Setting -->
+<div id="settingsModal" style="position:fixed;inset:0;z-index:80;background:rgba(15,42,85,.55);display:none;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="width:100%;max-width:380px;padding:22px">
+    <h3 style="font-weight:900;font-size:1.5rem;color:#1e3a8a">⚙️ Pengaturan Suara</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0">
+      <span style="font-weight:800">🎵 Musik Latar</span>
+      <button id="musicToggle" class="btn" style="padding:8px 20px">ON</button>
+    </div>
+    <label for="volRange" style="font-weight:800">🔊 Volume: <span id="volTxt">60%</span></label>
+    <input id="volRange" type="range" min="0" max="100" value="60">
+    <div style="text-align:right;margin-top:16px"><button id="settingsClose" class="btn btn-light">Tutup</button></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   PENGATURAN - hubungkan ke Google Sheet (lihat petunjuk di bagian atas)
+   ===================================================================== */
+const SHEET_URL = ""; // contoh: "https://script.google.com/macros/s/XXXX/exec"
+
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const shuffle = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const norm = w => w.toLowerCase().replace(/[^a-z]/g,'');
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2200);}
+function confetti(){const e=['🎉','⭐','🌟','🌺','🦜','🎊','💙'];for(let i=0;i<32;i++){const d=document.createElement('div');d.className='confetti';d.textContent=e[i%e.length];d.style.left=Math.random()*100+'vw';d.style.animationDelay=Math.random()*1.2+'s';document.body.appendChild(d);setTimeout(()=>d.remove(),4500);}}
+
+/* =====================================================================
+   AUDIO (disintesis dengan Web Audio API - tanpa file eksternal)
+   ===================================================================== */
+const Snd = {
+  ctx:null, master:null, mus:null, musicOn:true, vol:.6, timer:null, next:0, step:0,
+  MEL:[72,74,76,79,76,74,76,72, 74,76,79,81,79,76,74,67, 76,79,81,84,81,79,76,74, 72,76,74,79,76,74,72,0],
+  BASS:[48,55,53,55],
+  f(m){return 440*Math.pow(2,(m-69)/12);},
+  init(){
+    if(this.ctx){ if(this.ctx.state==='suspended') this.ctx.resume(); return; }
+    try{
+      const C=window.AudioContext||window.webkitAudioContext; this.ctx=new C();
+      this.master=this.ctx.createGain(); this.master.gain.value=this.vol; this.master.connect(this.ctx.destination);
+      this.mus=this.ctx.createGain(); this.mus.gain.value=.25; this.mus.connect(this.master);
+    }catch(e){ this.ctx=null; }
+  },
+  tone(freq,t,dur,type,vol,dest){
+    const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t);
+    g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+.015); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(dest||this.master); o.start(t); o.stop(t+dur+.05);
+  },
+  sfx(notes,gap,type,vol,dur){
+    if(!this.ctx||this.ctx.state!=='running') return;
+    const t=this.ctx.currentTime; notes.forEach((m,i)=>this.tone(this.f(m),t+i*gap,dur||.18,type,vol||.35));
+  },
+  click(){this.sfx([88],0,'square',.18,.07);},
+  ok(){this.sfx([72,76,79,84],.09,'triangle',.5,.2);},
+  bad(){this.sfx([55,50],.16,'sawtooth',.25,.25);},
+  win(){this.sfx([72,76,79,84,88,91,96],.11,'triangle',.5,.3);},
+  startMusic(){ if(!this.ctx||!this.musicOn||this.timer) return; this.next=this.ctx.currentTime+.1; this.timer=setInterval(()=>this.sched(),100); },
+  stopMusic(){ clearInterval(this.timer); this.timer=null; },
+  sched(){
+    if(this.ctx.state!=='running') return;
+    while(this.next<this.ctx.currentTime+.3){
+      const s=this.step%32, m=this.MEL[s], d=.23;
+      if(m) this.tone(this.f(m),this.next,d*1.7,'triangle',.55,this.mus);
+      if(s%4===0) this.tone(this.f(this.BASS[Math.floor(s/8)]),this.next,d*3,'sine',.65,this.mus);
+      if(s%2===0) this.tone(this.f(96),this.next,.05,'square',.05,this.mus);
+      this.next+=d; this.step++;
+    }
+  },
+  setMusic(on){ this.musicOn=on; on?this.startMusic():this.stopMusic(); $('#musicToggle').textContent=on?'ON':'OFF'; $('#musicToggle').classList.toggle('btn-light',!on); },
+  setVol(v){ this.vol=v; if(this.master) this.master.gain.value=v; $('#volTxt').textContent=Math.round(v*100)+'%'; }
+};
+document.addEventListener('visibilitychange',()=>{ if(!Snd.ctx) return; document.hidden?Snd.ctx.suspend():Snd.ctx.resume(); });
+document.addEventListener('click',e=>{ if(e.target.closest('button')) Snd.click(); });
+
+/* =====================================================================
+   NAVIGASI
+   ===================================================================== */
+function show(id){
+  $$('.screen').forEach(s=>s.classList.remove('active'));
+  $('#'+id).classList.add('active');
+  $('#homeBtn').style.display = id==='splash' ? 'none' : 'block';
+  window.scrollTo(0,0);
+  if(id==='materi') renderMateri();
+  if(id==='kuis') kuisHome();
+  if(id==='simulasi') simReset();
+}
+$('#startBtn').onclick=()=>{ Snd.init(); Snd.startMusic(); show('menu'); };
+$('#homeBtn').onclick=()=>show('menu');
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-go]'); if(b) show(b.dataset.go); });
+
+// Setting
+$('#settingsBtn').onclick=()=>{ $('#settingsModal').style.display='flex'; };
+$('#settingsClose').onclick=()=>{ $('#settingsModal').style.display='none'; };
+$('#musicToggle').onclick=()=>{ Snd.init(); Snd.setMusic(!Snd.musicOn); };
+$('#volRange').oninput=e=>{ Snd.init(); Snd.setVol(e.target.value/100); };
+$('#volRange').onchange=()=>Snd.click();
+$('#musicToggle').textContent='ON';
+
+/* =====================================================================
+   MATERI (tab + klik-reveal + pagination)
+   ===================================================================== */
+const MATERI=[
+ {k:'Konsep',i:'🌏',intro:'Keanekaragaman hayati (biodiversitas) adalah keragaman makhluk hidup di bumi, mulai dari tingkat gen, jenis (spesies), hingga ekosistem. Klik kartu untuk membuka penjelasannya!',
+  cards:[
+   {e:'🧬',t:'Keanekaragaman Gen',d:'Perbedaan sifat dalam satu jenis makhluk hidup. Contoh: mangga arumanis, manalagi, dan gedong gincu berbeda rasa, warna, dan ukuran, padahal sama-sama mangga. Contoh lain: berbagai varietas padi dan kucing dengan warna bulu berbeda.'},
+   {e:'🐘',t:'Keanekaragaman Jenis',d:'Keragaman berbagai spesies di suatu daerah. Contoh: harimau, gajah, badak, dan orangutan hidup di hutan tropis Sumatra. Setiap jenis memiliki ciri morfologi dan perilaku yang berbeda.'},
+   {e:'🏞️',t:'Keanekaragaman Ekosistem',d:'Keragaman lingkungan hidup beserta interaksi makhluk hidup di dalamnya. Contoh: hutan hujan tropis, hutan bakau (mangrove), terumbu karang, padang lamun, savana, dan danau.'},
+   {e:'🌴',t:'Mengapa Indonesia Kaya Hayati?',d:'Indonesia disebut negara megabiodiversitas karena: (1) berada di daerah tropis dengan sinar matahari dan curah hujan melimpah, (2) berupa kepulauan dengan lebih dari 17.000 pulau, (3) memiliki beragam ekosistem, dan (4) terletak di antara dua benua dan dua samudra.'}
+  ]},
+ {k:'Flora',i:'🌺',intro:'Flora adalah kekayaan tumbuhan. Banyak flora Indonesia bersifat endemik, yaitu hanya ditemukan di daerah tertentu. Klik kartu untuk melihat detailnya!',
+  cards:[
+   {e:'🌺',t:'Rafflesia arnoldii',d:'Asal: Bengkulu dan Sumatra. Bunga terbesar di dunia, tidak berdaun dan hidup parasit pada akar tumbuhan inang. Ditetapkan sebagai Puspa Langka Indonesia.'},
+   {e:'🌸',t:'Bunga Bangkai (Amorphophallus titanum)',d:'Asal: hutan hujan Sumatra. Bunga majemuk tertinggi di dunia, dapat mencapai lebih dari 3 meter, berbau menyengat untuk menarik serangga penyerbuk.'},
+   {e:'🪵',t:'Cendana (Santalum album)',d:'Asal: Nusa Tenggara Timur. Kayunya harum dan bernilai ekonomi tinggi untuk minyak wangi, dupa, dan kerajinan.'},
+   {e:'🌿',t:'Anggrek Hitam (Coelogyne pandurata)',d:'Asal: Kalimantan. Anggrek dengan lidah bunga berwarna hitam. Populasinya menurun karena perburuan dan hilangnya hutan.'},
+   {e:'🌳',t:'Eboni / Kayu Hitam (Diospyros celebica)',d:'Asal: Sulawesi. Kayunya hitam berkilau, kuat, dan mahal sehingga rawan ditebang berlebihan.'}
+  ]},
+ {k:'Fauna',i:'🦎',intro:'Fauna adalah kekayaan hewan. Indonesia memiliki sekitar 12% mamalia dunia dan 17% jenis burung dunia. Klik kartu untuk mengenal satwa endemiknya!',
+  cards:[
+   {e:'🦎',t:'Komodo (Varanus komodoensis)',d:'Asal: Pulau Komodo, Rinca, dan sebagian Flores (NTT). Kadal terbesar di dunia, dilindungi di Taman Nasional Komodo.'},
+   {e:'🦧',t:'Orangutan',d:'Asal: Sumatra dan Kalimantan. Primata besar penghuni hutan hujan yang hidup di pepohonan. Statusnya terancam punah.'},
+   {e:'🐅',t:'Harimau Sumatra',d:'Asal: Pulau Sumatra. Satu-satunya subspesies harimau di Indonesia yang masih tersisa. Berstatus sangat terancam punah.'},
+   {e:'🦏',t:'Badak Jawa',d:'Asal: Taman Nasional Ujung Kulon, Banten. Bercula satu dan sangat langka, populasinya hanya puluhan ekor.'},
+   {e:'🦜',t:'Cenderawasih',d:'Asal: Papua. Dijuluki burung surga karena bulunya sangat indah. Jantan menari untuk menarik betina.'},
+   {e:'🐃',t:'Anoa',d:'Asal: Sulawesi. Kerbau kerdil, yaitu kerbau terkecil di dunia yang hidup di hutan.'},
+   {e:'🐦',t:'Jalak Bali',d:'Asal: Bali (Taman Nasional Bali Barat). Burung putih dengan kulit biru di sekitar mata, dilindungi dan dikembangbiakkan di penangkaran.'},
+   {e:'🥚',t:'Maleo',d:'Asal: Sulawesi. Burung yang mengubur telurnya di pasir hangat atau tanah panas bumi agar menetas tanpa dierami.'}
+  ]},
+ {k:'Persebaran',i:'🗺️',intro:'Persebaran flora dan fauna Indonesia dibagi menjadi tiga wilayah oleh garis imajiner yang menunjukkan perbedaan jenis satwa. Klik kartu untuk mengetahuinya!',
+  cards:[
+   {e:'🐘',t:'Wilayah Asiatis',d:'Meliputi Sumatra, Jawa, Kalimantan, dan Bali. Fauna mirip Benua Asia: gajah, harimau, badak, orangutan, tapir, dan banteng.'},
+   {e:'🔀',t:'Wilayah Peralihan',d:'Meliputi Sulawesi, Nusa Tenggara, dan Maluku. Memiliki campuran ciri Asia dan Australia dengan banyak satwa endemik: anoa, babirusa, maleo, komodo, dan tarsius.'},
+   {e:'🦘',t:'Wilayah Australis',d:'Meliputi Papua. Fauna mirip Benua Australia: kanguru pohon, cenderawasih, kasuari, dan walabi.'},
+   {e:'📏',t:'Garis Wallace dan Weber',d:'Garis Wallace (Selat Lombok dan Selat Makassar) memisahkan fauna Asiatis dan peralihan. Garis Weber memisahkan fauna peralihan dan Australis. Garis Lydekker membatasi bagian paling timur fauna Australis.'}
+  ]},
+ {k:'Lestari',i:'🛡️',intro:'Keanekaragaman hayati kita terancam. Kita semua punya peran untuk melestarikannya. Klik kartu untuk belajar lebih lanjut!',
+  cards:[
+   {e:'⚠️',t:'Ancaman',d:'Deforestasi dan alih fungsi lahan, perburuan dan perdagangan satwa liar, kebakaran hutan, pencemaran, spesies asing invasif, dan perubahan iklim.'},
+   {e:'🌳',t:'Pelestarian In Situ',d:'Pelestarian di habitat aslinya. Contoh: taman nasional, cagar alam, suaka margasatwa, dan taman wisata alam.'},
+   {e:'🏛️',t:'Pelestarian Ex Situ',d:'Pelestarian di luar habitat aslinya. Contoh: kebun raya, kebun binatang, penangkaran, dan bank gen (bank biji).'},
+   {e:'💙',t:'Peran Kita',d:'Tidak membeli atau memelihara satwa liar dilindungi, menanam pohon, mengurangi sampah plastik, hemat energi, dan menyebarkan informasi pelestarian.'}
+  ]}
+];
+let mTab=0; const mOpened=new Set();
+const mTotal=MATERI.reduce((a,m)=>a+m.cards.length,0);
+function renderMateri(){
+  $('#mTabs').innerHTML=MATERI.map((m,i)=>`<button class="tabbtn ${i===mTab?'on':''}" data-tab="${i}">${m.i} ${m.k}</button>`).join('');
+  const m=MATERI[mTab];
+  $('#mBody').innerHTML=`<div class="card" style="padding:18px"><p style="font-weight:600;line-height:1.6;margin-bottom:14px">${m.intro}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;align-items:start">
+    ${m.cards.map((c,j)=>`<button class="reveal ${mOpened.has(mTab+'-'+j)?'open':''}" data-card="${j}">
+      <div style="display:flex;gap:10px;align-items:center"><span style="font-size:2rem">${c.e}</span><b style="font-size:1.05rem;color:#1d4ed8">${c.t}</b></div>
+      <div class="detail">${c.d}</div></button>`).join('')}
+    </div>
+    ${mTab===MATERI.length-1?`<div style="text-align:center;margin-top:18px"><p style="font-weight:800;margin-bottom:8px">Sudah paham? Uji dirimu!</p><button class="btn btn-green" data-go="kuis">🎮 Main Kuis</button> <button class="btn btn-sky" data-go="simulasi">📝 Simulasi</button></div>`:''}
+    </div>`;
+  $('#mPrev').style.visibility=mTab===0?'hidden':'visible';
+  $('#mNext').style.visibility=mTab===MATERI.length-1?'hidden':'visible';
+  updMProg();
+}
+function updMProg(){ const p=Math.round(mOpened.size/mTotal*100); $('#mProg').style.width=p+'%'; $('#mProgTxt').textContent=`Kartu dibuka: ${mOpened.size} dari ${mTotal} (${p}%)`; }
+$('#mTabs').onclick=e=>{const b=e.target.closest('[data-tab]'); if(b){mTab=+b.dataset.tab; renderMateri();}};
+$('#mPrev').onclick=()=>{ if(mTab>0){mTab--;renderMateri();window.scrollTo(0,0);} };
+$('#mNext').onclick=()=>{ if(mTab<MATERI.length-1){mTab++;renderMateri();window.scrollTo(0,0);} };
+$('#mBody').onclick=e=>{
+  const b=e.target.closest('[data-card]'); if(!b) return;
+  const key=mTab+'-'+b.dataset.card; b.classList.toggle('open');
+  if(b.classList.contains('open')) mOpened.add(key); updMProg();
+};
+
+/* =====================================================================
+   KUIS - 4 game, masing-masing beberapa level progresif
+   ===================================================================== */
+const GAMES=[
+ {id:'tebak',n:'Tebak Cepat',i:'🧠',d:'Pilihan ganda, 4 level',lv:4},
+ {id:'bs',n:'Benar atau Salah',i:'✅',d:'Tentukan pernyataan, 3 level',lv:3},
+ {id:'pasang',n:'Pasangkan Kartu',i:'🃏',d:'Cocokkan satwa dengan daerah asal, 4 level',lv:4},
+ {id:'susun',n:'Susun Huruf',i:'🔤',d:'Susun kata yang diacak, 4 level',lv:4}
+];
+const TEBAK=[
+ [ {q:'Kadal terbesar di dunia yang berasal dari Nusa Tenggara Timur adalah...',o:['Komodo','Bunglon','Iguana','Cicak'],a:0},
+   {q:'Bunga terbesar di dunia yang tumbuh di Bengkulu adalah...',o:['Mawar','Rafflesia arnoldii','Melati','Teratai'],a:1},
+   {q:'Burung surga endemik Papua adalah...',o:['Merpati','Jalak Bali','Cenderawasih','Elang Jawa'],a:2} ],
+ [ {q:'Satwa endemik Sulawesi yang disebut kerbau kerdil adalah...',o:['Banteng','Anoa','Tapir','Badak'],a:1},
+   {q:'Badak Jawa dilindungi di Taman Nasional...',o:['Komodo','Gunung Leuser','Ujung Kulon','Lorentz'],a:2},
+   {q:'Orangutan hidup alami di pulau...',o:['Sumatra dan Kalimantan','Jawa dan Bali','Sulawesi dan Papua','Maluku dan NTT'],a:0} ],
+ [ {q:'Perbedaan warna dan rasa pada berbagai varietas mangga termasuk keanekaragaman tingkat...',o:['Ekosistem','Gen','Jenis antarspesies','Biosfer'],a:1},
+   {q:'Garis Wallace memisahkan fauna...',o:['Asiatis dan peralihan','Peralihan dan Australis','Jawa dan Sumatra','Utara dan selatan'],a:0},
+   {q:'Burung maleo berkembang biak dengan cara...',o:['Bersarang di pohon tinggi','Mengubur telur di pasir atau tanah hangat','Menitipkan telur','Melahirkan anak'],a:1} ],
+ [ {q:'Contoh pelestarian ex situ adalah...',o:['Kebun raya','Taman nasional','Cagar alam','Suaka margasatwa'],a:0},
+   {q:'Indonesia disebut negara megabiodiversitas karena...',o:['Wilayahnya sangat dingin','Beriklim tropis, berupa kepulauan, dan memiliki beragam ekosistem','Hanya memiliki satu jenis hutan','Tidak ada musim hujan'],a:1},
+   {q:'Papua termasuk wilayah persebaran fauna...',o:['Asiatis','Peralihan','Australis','Arktik'],a:2} ]
+];
+const BS=[
+ [ {t:'Harimau Sumatra hidup alami di Pulau Sumatra.',a:true,e:'Benar, harimau Sumatra endemik Pulau Sumatra.'},
+   {t:'Komodo adalah hewan endemik Kalimantan.',a:false,e:'Salah, komodo berasal dari Nusa Tenggara Timur.'},
+   {t:'Indonesia hanya memiliki sedikit jenis flora dan fauna.',a:false,e:'Salah, Indonesia termasuk negara megabiodiversitas.'} ],
+ [ {t:'Rafflesia arnoldii adalah bunga terbesar di dunia.',a:true,e:'Benar, diameternya bisa lebih dari 1 meter.'},
+   {t:'Anoa adalah satwa endemik Papua.',a:false,e:'Salah, anoa endemik Sulawesi.'},
+   {t:'Taman nasional adalah contoh pelestarian in situ.',a:true,e:'Benar, in situ berarti di habitat asli.'} ],
+ [ {t:'Garis Wallace melewati Selat Lombok dan Selat Makassar.',a:true,e:'Benar, garis itu membatasi fauna Asiatis dan peralihan.'},
+   {t:'Kebun binatang termasuk pelestarian in situ.',a:false,e:'Salah, kebun binatang adalah ex situ (di luar habitat asli).'},
+   {t:'Hutan bakau, terumbu karang, dan savana adalah contoh keanekaragaman ekosistem.',a:true,e:'Benar, semuanya tipe ekosistem yang berbeda.'} ]
+];
+const PAIRS=[['🦎 Komodo','NTT'],['🦜 Cenderawasih','Papua'],['🐃 Anoa','Sulawesi'],['🐦 Jalak Bali','Bali'],['🦏 Badak Jawa','Ujung Kulon'],['🌺 Rafflesia','Bengkulu']];
+const SUSUN=[
+ [{w:'KOMODO',h:'Kadal raksasa dari NTT'},{w:'ANOA',h:'Kerbau kerdil dari Sulawesi'}],
+ [{w:'ORANGUTAN',h:'Primata besar dari Sumatra dan Kalimantan'},{w:'CENDANA',h:'Kayu harum dari NTT'}],
+ [{w:'RAFFLESIA',h:'Bunga terbesar di dunia'},{w:'CENDERAWASIH',h:'Burung surga dari Papua'}],
+ [{w:'EKOSISTEM',h:'Keanekaragaman tingkat lingkungan hidup'},{w:'KONSERVASI',h:'Upaya pelestarian alam'}]
+];
+let prog={tebak:[0,0,0,0],bs:[0,0,0],pasang:[0,0,0,0],susun:[0,0,0,0]};
+try{ const p=JSON.parse(localStorage.getItem('mpi_prog')||'null'); if(p) prog=Object.assign(prog,p); }catch(e){}
+function saveProg(){ try{localStorage.setItem('mpi_prog',JSON.stringify(prog));}catch(e){} }
+const stars=n=>'⭐'.repeat(n)+'<span style="opacity:.25">'+'⭐'.repeat(3-n)+'</span>';
+const KB=()=>$('#kuisBody');
+let R=null;
+
+function kuisHome(){
+  R=null;
+  KB().innerHTML=`<h2 style="font-weight:900;font-size:2rem;color:#1e3a8a;text-align:center">🎮 KUIS</h2>
+  <p style="text-align:center;font-weight:700;color:#1d4ed8;margin-bottom:16px">Pilih game. Selesaikan level untuk membuka level berikutnya!</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+  ${GAMES.map(g=>`<button class="btn" data-game="${g.id}" style="text-align:center;padding:24px 14px">
+    <div style="font-size:3rem">${g.i}</div><div style="font-size:1.3rem">${g.n}</div>
+    <div style="font-size:.85rem;font-weight:600;opacity:.9;margin:4px 0">${g.d}</div>
+    <div>${stars(Math.floor(prog[g.id].reduce((a,b)=>a+b,0)/g.lv))}</div></button>`).join('')}
+  </div>`;
+}
+function kuisLevels(gid){
+  const g=GAMES.find(x=>x.id===gid);
+  KB().innerHTML=`<div style="text-align:center"><div style="font-size:3rem">${g.i}</div>
+  <h2 style="font-weight:900;font-size:1.8rem;color:#1e3a8a">${g.n}</h2><p style="font-weight:700;color:#1d4ed8;margin-bottom:16px">Pilih level</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px">
+  ${Array.from({length:g.lv},(_,i)=>{const open=i===0||prog[gid][i-1]>0;
+    return `<button class="btn" ${open?`data-level="${i}" data-gid="${gid}"`:'disabled'} style="padding:20px 10px;text-align:center">
+    <div style="font-size:1.4rem">${open?'LEVEL '+(i+1):'🔒 LEVEL '+(i+1)}</div>
+    <div style="font-size:.8rem;font-weight:600">${['Mudah','Sedang','Menantang','Sulit'][i]}</div>
+    <div>${open?stars(prog[gid][i]):''}</div></button>`;}).join('')}
+  </div>
+  <div style="text-align:center;margin-top:18px"><button class="btn btn-light" data-act="home">⬅ Pilih Game</button></div>`;
+}
+function qHead(){
+  const g=GAMES.find(x=>x.id===R.gid), n=R.items.length;
+  return `<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-weight:800;color:#1d4ed8"><span>${g.i} ${g.n} • Level ${R.lv+1}</span><span>${R.gid==='pasang'?'Langkah: '+R.moves:'Soal '+Math.min(R.i+1,n)+'/'+n+' • ✔ '+R.correct}</span></div>
+  <div class="bar" style="margin-top:6px"><div style="width:${R.gid==='pasang'?(R.matched/R.items.length*100):(R.i/n*100)}%"></div></div></div>`;
+}
+function startLevel(gid,lv){
+  R={gid,lv,i:0,correct:0,locked:false};
+  if(gid==='tebak') R.items=TEBAK[lv].map(q=>({q:q.q,o:shuffle(q.o.map((t,i)=>({t,c:i===q.a})))}));
+  if(gid==='bs') R.items=BS[lv];
+  if(gid==='susun') R.items=SUSUN[lv].map(x=>{let s;do{s=shuffle(x.w.split(''));}while(s.join('')===x.w);return {w:x.w,h:x.h,tiles:s.map(c=>({c,u:false})),ans:[]};});
+  if(gid==='pasang'){
+    const ps=PAIRS.slice(0,3+lv); R.pairs=ps.length;
+    R.items=shuffle(ps.flatMap((p,i)=>[{id:i,t:p[0]},{id:i,t:p[1]}])); R.flip=[]; R.done=new Set(); R.moves=0; R.matched=0;
+  }
+  playItem();
+}
+function playItem(){
+  R.locked=false;
+  if(R.gid==='pasang') return playPasang();
+  if(R.i>=R.items.length) return levelDone();
+  const it=R.items[R.i];
+  if(R.gid==='tebak'){
+    KB().innerHTML=qHead()+`<div class="card" style="padding:20px"><p style="font-weight:800;font-size:1.25rem;line-height:1.5;margin-bottom:14px">${it.q}</p>
+    <div style="display:grid;gap:10px">${it.o.map((o,i)=>`<button class="opt" data-opt="${i}">${String.fromCharCode(65+i)}. ${o.t}</button>`).join('')}</div><div id="fb"></div></div>`;
+  }
+  if(R.gid==='bs'){
+    KB().innerHTML=qHead()+`<div class="card" style="padding:20px;text-align:center"><p style="font-weight:800;font-size:1.3rem;line-height:1.5;margin-bottom:18px">${it.t}</p>
+    <div style="display:flex;gap:14px;justify-content:center"><button class="btn btn-green" data-bs="1" style="font-size:1.3rem;padding:16px 34px">✅ BENAR</button><button class="btn" data-bs="0" style="font-size:1.3rem;padding:16px 34px;background:#dc2626;box-shadow:0 5px 0 #7f1d1d">❌ SALAH</button></div><div id="fb"></div></div>`;
+  }
+  if(R.gid==='susun') renderSusun();
+}
+function feedback(ok,msg){
+  R.locked=true; if(ok){R.correct++;Snd.ok();}else Snd.bad();
+  const last=R.i>=R.items.length-1;
+  $('#fb').innerHTML=`<div style="margin-top:14px;padding:12px;border-radius:14px;font-weight:700;background:${ok?'#dcfce7':'#fee2e2'};color:${ok?'#14532d':'#7f1d1d'}">${ok?'🎉 Benar!':'😅 Belum tepat.'} ${msg||''}</div>
+  <div style="text-align:center;margin-top:12px"><button class="btn" data-act="next">${last?'Lihat Hasil':'Lanjut ➜'}</button></div>`;
+}
+function renderSusun(){
+  const it=R.items[R.i];
+  KB().innerHTML=qHead()+`<div class="card" style="padding:20px;text-align:center"><p style="font-weight:700;color:#1d4ed8">💡 Petunjuk: ${it.h}</p>
+  <div style="margin:16px 0;min-height:60px">${it.w.split('').map((_,k)=>`<span class="slot">${it.ans[k]!==undefined?it.tiles[it.ans[k]].c:''}</span>`).join('')}</div>
+  <div style="margin-bottom:14px">${it.tiles.map((t,k)=>`<button class="tile" data-tile="${k}" ${t.u||R.locked?'disabled':''}>${t.c}</button> `).join('')}</div>
+  <div style="display:flex;gap:10px;justify-content:center"><button class="btn btn-light" data-act="undo" ${R.locked?'disabled':''}>⌫ Hapus</button><button class="btn btn-green" data-act="check" ${R.locked?'disabled':''}>Periksa</button></div><div id="fb"></div></div>`;
+}
+function playPasang(){
+  const cols=R.items.length<=6?3:4;
+  KB().innerHTML=qHead()+`<div class="card" style="padding:16px"><p style="text-align:center;font-weight:700;color:#1d4ed8;margin-bottom:10px">Pasangkan nama satwa/tumbuhan dengan daerah asalnya!</p>
+  <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:10px">${R.items.map((c,k)=>{
+    const up=R.flip.includes(k), dn=R.done.has(k);
+    return `<button class="mcard ${dn?'done':up?'up':'down'}" data-mc="${k}">${dn||up?c.t:'?'}</button>`;}).join('')}</div></div>`;
+}
+function clickPasang(k){
+  if(R.locked||R.done.has(k)||R.flip.includes(k)) return;
+  R.flip.push(k); playPasang();
+  if(R.flip.length===2){
+    R.moves++; const [a,b]=R.flip;
+    if(R.items[a].id===R.items[b].id){ R.done.add(a);R.done.add(b);R.matched+=2;R.flip=[];Snd.ok(); setTimeout(()=>{ if(R.matched===R.items.length){R.correct=R.pairs;levelDone();} else playPasang(); },300); }
+    else { R.locked=true;Snd.bad(); setTimeout(()=>{R.flip=[];R.locked=false;playPasang();},900); }
+    if(R.matched<R.items.length) setTimeout(()=>{},0);
+  }
+}
+function levelDone(){
+  const g=GAMES.find(x=>x.id===R.gid); let st, n;
+  if(R.gid==='pasang'){ n=R.pairs; st=R.moves<=R.pairs+2?3:R.moves<=R.pairs*2?2:1; }
+  else { n=R.items.length; const pass=R.correct>=Math.ceil(n/2); st=!pass?0:R.correct===n?3:R.correct/n>=.66?2:1; }
+  if(st>0){ prog[R.gid][R.lv]=Math.max(prog[R.gid][R.lv],st); saveProg(); Snd.win(); confetti(); } else Snd.bad();
+  const hasNext=st>0&&R.lv+1<g.lv;
+  KB().innerHTML=`<div class="card" style="padding:26px;text-align:center"><div style="font-size:4rem">${st>0?'🏆':'💪'}</div>
+  <h2 style="font-weight:900;font-size:1.8rem;color:#1e3a8a">${st>0?'Level Selesai!':'Ayo coba lagi!'}</h2>
+  <p style="font-size:1.2rem;font-weight:700;margin:8px 0">${R.gid==='pasang'?`Selesai dalam ${R.moves} langkah`:`Benar ${R.correct} dari ${n}`}</p>
+  <div style="font-size:2.2rem;margin-bottom:14px">${stars(st)}</div>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="btn btn-light" data-level="${R.lv}" data-gid="${R.gid}">🔁 Ulangi</button>
+    ${hasNext?`<button class="btn btn-green" data-level="${R.lv+1}" data-gid="${R.gid}">Level Berikutnya ➜</button>`:''}
+    <button class="btn" data-game="${R.gid}">📋 Daftar Level</button></div></div>`;
+}
+KB().addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t||t.disabled) return;
+  if(t.dataset.game) return kuisLevels(t.dataset.game);
+  if(t.dataset.level!==undefined) return startLevel(t.dataset.gid,+t.dataset.level);
+  if(t.dataset.act==='home') return kuisHome();
+  if(!R) return;
+  if(t.dataset.act==='next'){R.i++;return playItem();}
+  if(t.dataset.opt!==undefined&&!R.locked){
+    const it=R.items[R.i], k=+t.dataset.opt, ok=it.o[k].c;
+    $$('.opt').forEach((b,i)=>{b.disabled=true; if(it.o[i].c)b.classList.add('ok'); else if(i===k)b.classList.add('bad');});
+    return feedback(ok, ok?'':'Jawaban yang benar: '+it.o.find(o=>o.c).t);
+  }
+  if(t.dataset.bs!==undefined&&!R.locked){
+    const it=R.items[R.i]; $$('[data-bs]').forEach(b=>b.disabled=true);
+    return feedback((t.dataset.bs==='1')===it.a,it.e);
+  }
+  if(t.dataset.mc!==undefined) return clickPasang(+t.dataset.mc);
+  if(R.gid==='susun'){
+    const it=R.items[R.i];
+    if(t.dataset.tile!==undefined&&!R.locked&&it.ans.length<it.w.length){ it.tiles[+t.dataset.tile].u=true; it.ans.push(+t.dataset.tile); return renderSusun(); }
+    if(t.dataset.act==='undo'&&it.ans.length){ it.tiles[it.ans.pop()].u=false; return renderSusun(); }
+    if(t.dataset.act==='check'){
+      if(it.ans.length<it.w.length) return toast('Susun semua huruf dulu ya!');
+      const guess=it.ans.map(k=>it.tiles[k].c).join(''), ok=guess===it.w;
+      R.locked=true; renderSusun(); R.locked=false; $$('.tile,[data-act=undo],[data-act=check]').forEach(b=>b.disabled=true);
+      return feedback(ok, ok?'':'Kata yang benar: '+it.w);
+    }
+  }
+});
+
+/* =====================================================================
+   SIMULASI - 10 soal (Drag the Word, Pilihan Ganda, Mark the Word)
+   ===================================================================== */
+const SIM=[
+ {t:'drag',q:'Kadal terbesar di dunia yang berasal dari Nusa Tenggara Timur adalah {0}.',bank:['Komodo','Anoa','Maleo','Tarsius'],ans:['Komodo'],e:'Komodo hidup di Pulau Komodo, Rinca, dan Flores.'},
+ {t:'drag',q:'Bunga terbesar di dunia yang tumbuh di Bengkulu bernama {0} arnoldii.',bank:['Rafflesia','Anggrek','Melati','Teratai'],ans:['Rafflesia'],e:'Rafflesia arnoldii adalah Puspa Langka Indonesia.'},
+ {t:'drag',q:'Garis {0} memisahkan fauna Asiatis dari fauna peralihan, sedangkan garis {1} memisahkan fauna peralihan dari fauna Australis.',bank:['Weber','Wallace','Lydekker'],ans:['Wallace','Weber'],e:'Wallace berada di Selat Lombok dan Selat Makassar; Weber di sebelah timurnya.'},
+ {t:'drag',q:'Pelestarian di habitat aslinya disebut {0}, sedangkan pelestarian di luar habitat aslinya disebut {1}.',bank:['ex situ','in situ','gen'],ans:['in situ','ex situ'],e:'Contoh in situ: taman nasional. Contoh ex situ: kebun raya.'},
+ {t:'mc',q:'Hutan hujan tropis, terumbu karang, dan savana adalah contoh keanekaragaman tingkat...',o:['Gen','Jenis','Ekosistem','Individu'],a:2,e:'Keanekaragaman ekosistem adalah keragaman lingkungan hidup.'},
+ {t:'mc',q:'Burung putih berkulit biru di sekitar mata yang endemik Bali dan sangat langka adalah...',o:['Cenderawasih','Maleo','Elang Jawa','Jalak Bali'],a:3,e:'Jalak Bali dilestarikan di Taman Nasional Bali Barat.'},
+ {t:'mc',q:'Manakah yang BUKAN ancaman bagi keanekaragaman hayati?',o:['Perburuan liar','Alih fungsi hutan','Reboisasi (penanaman kembali hutan)','Pencemaran lingkungan'],a:2,e:'Reboisasi justru membantu memulihkan hutan.'},
+ {t:'mark',q:'Tandai (klik) semua nama FLORA pada kalimat berikut.',text:'Di Indonesia ada Rafflesia, Komodo, Cendana, Anoa, dan Eboni.',ans:['rafflesia','cendana','eboni'],e:'Flora: Rafflesia, Cendana, Eboni. Komodo dan Anoa adalah fauna.'},
+ {t:'mark',q:'Tandai (klik) semua satwa endemik SULAWESI.',text:'Anoa, Harimau, Maleo, Gajah, Babirusa, dan Cenderawasih.',ans:['anoa','maleo','babirusa'],e:'Harimau dan gajah dari Sumatra, Cenderawasih dari Papua.'},
+ {t:'mark',q:'Tandai (klik) semua kata yang merupakan ANCAMAN keanekaragaman hayati.',text:'Deforestasi, perburuan, reboisasi, pencemaran, konservasi, dan kebakaran hutan.',ans:['deforestasi','perburuan','pencemaran','kebakaran'],e:'Reboisasi dan konservasi adalah upaya pelestarian.'}
+];
+const LBL={drag:'🧩 Drag the Word',mc:'🔘 Pilihan Ganda',mark:'🖍️ Mark the Word'};
+let S=null;
+function simReset(){
+  S=null; $('#simIntro').style.display='block'; $('#simPlay').style.display='none'; $('#simResult').style.display='none';
+}
+function simBegin(){
+  const nama=$('#inpNama').value.trim();
+  if(!nama){ toast('Isi nama dulu ya!'); $('#inpNama').focus(); return; }
+  S={i:0,pts:0,ben:0,locked:false,nama,kelas:$('#inpKelas').value.trim()};
+  $('#simIntro').style.display='none'; $('#simResult').style.display='none'; $('#simPlay').style.display='block';
+  simQ();
+}
+$('#simStart').onclick=simBegin;
+$('#inpNama').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#inpKelas').focus(); });
+$('#inpKelas').addEventListener('keydown',e=>{ if(e.key==='Enter') simBegin(); });
+
+function simQ(){
+  const q=SIM[S.i]; S.locked=false; S.sel=null;
+  if(q.t==='drag') S.b=q.ans.map(()=>null);
+  if(q.t==='mc') S.opts=shuffle(q.o.map((t,i)=>({t,c:i===q.a}))), S.pick=null;
+  if(q.t==='mark') S.m=new Set();
+  simRender();
+}
+function simRender(fb){
+  const q=SIM[S.i];
+  let body='';
+  if(q.t==='drag'){
+    const parts=q.q.split(/\{(\d)\}/);
+    const used=S.b.filter(x=>x!==null);
+    body=`<p style="font-weight:700;font-size:1.2rem;line-height:2.4">${parts.map((p,k)=>{
+      if(k%2===0) return esc(p);
+      const bi=+p, ch=S.b[bi]; let cls='blank';
+      if(fb) cls+=(q.bank[ch]===q.ans[bi]?' ok':' bad');
+      return `<span class="${cls}" data-blank="${bi}">${ch!==null?esc(q.bank[ch]):'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span>`;}).join('')}</p>
+    <p style="margin:10px 0 6px;font-weight:700;color:#1d4ed8;font-size:.9rem">Seret kata ke kotak, atau ketuk kata lalu ketuk kotak.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${q.bank.map((w,k)=>`<button class="chip ${S.sel===k?'sel':''}" draggable="true" data-chip="${k}" ${used.includes(k)||S.locked?'disabled':''}>${esc(w)}</button>`).join('')}</div>`;
+  }
+  if(q.t==='mc'){
+    body=`<p style="font-weight:700;font-size:1.2rem;line-height:1.5;margin-bottom:12px">${esc(q.q)}</p><div style="display:grid;gap:10px">${S.opts.map((o,i)=>{
+      let c='opt'; if(fb){ if(o.c)c+=' ok'; else if(S.pick===i)c+=' bad'; } else if(S.pick===i) c+=' ok';
+      return `<button class="${c}" data-mc="${i}" ${S.locked?'disabled':''}>${String.fromCharCode(65+i)}. ${esc(o.t)}</button>`;}).join('')}</div>`;
+  }
+  if(q.t==='mark'){
+    const toks=q.text.split(' ');
+    body=`<p style="font-weight:700;font-size:1.2rem;margin-bottom:12px">${esc(q.q)}</p><div class="card" style="padding:12px;background:#f8fbff">${toks.map((w,k)=>{
+      const n=norm(w), isAns=q.ans.includes(n), mk=S.m.has(k); let c='tok';
+      if(fb){ if(mk&&isAns)c+=' ok'; else if(mk&&!isAns)c+=' bad'; else if(!mk&&isAns)c+=' miss'; } else if(mk) c+=' mark';
+      return `<button class="${c}" data-tok="${k}" ${S.locked?'disabled':''}>${esc(w)}</button>`;}).join('')}</div>`;
+  }
+  $('#simPlay').innerHTML=`<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-weight:800;color:#1d4ed8"><span>Soal ${S.i+1} / ${SIM.length}</span><span>${LBL[q.t]}</span><span>Skor: ${S.pts}</span></div>
+    <div class="bar" style="margin-top:6px"><div style="width:${S.i/SIM.length*100}%"></div></div></div>
+    <div class="card" style="padding:20px">${body}
+    ${fb?`<div style="margin-top:14px;padding:12px;border-radius:14px;font-weight:700;background:${fb.ok?'#dcfce7':'#fee2e2'};color:${fb.ok?'#14532d':'#7f1d1d'}">${fb.ok?'🎉 Benar! +10':'😅 Belum tepat.'} ${esc(q.e)}</div>`:''}
+    <div style="text-align:center;margin-top:16px">${S.locked?`<button class="btn" data-sim="next">${S.i===SIM.length-1?'Lihat Hasil 🏆':'Lanjut ➜'}</button>`:`<button class="btn btn-green" data-sim="check">✔ PERIKSA</button>`}</div></div>`;
+}
+function simPlace(chip,blank){
+  if(S.locked) return;
+  const old=S.b.indexOf(chip); if(old>-1) S.b[old]=null;
+  S.b[blank]=chip; S.sel=null; simRender();
+}
+function simCheck(){
+  const q=SIM[S.i]; let ok=false;
+  if(q.t==='drag'){ if(S.b.includes(null)) return toast('Isi semua kotak dulu ya!'); ok=S.b.every((c,i)=>q.bank[c]===q.ans[i]); }
+  if(q.t==='mc'){ if(S.pick===null) return toast('Pilih satu jawaban dulu!'); ok=S.opts[S.pick].c; }
+  if(q.t==='mark'){ if(!S.m.size) return toast('Tandai minimal satu kata!');
+    const toks=q.text.split(' '), set=new Set([...S.m].map(k=>norm(toks[k])));
+    ok=set.size===q.ans.length&&q.ans.every(a=>set.has(a)); }
+  S.locked=true; if(ok){S.pts+=10;S.ben++;Snd.ok();}else Snd.bad();
+  simRender({ok});
+}
+$('#simPlay').addEventListener('click',e=>{
+  if(!S) return;
+  const t=e.target.closest('button,.blank'); if(!t) return;
+  if(t.dataset.sim==='check') return simCheck();
+  if(t.dataset.sim==='next'){ S.i++; return S.i>=SIM.length?simFinish():simQ(); }
+  if(S.locked) return;
+  const q=SIM[S.i];
+  if(t.dataset.chip!==undefined){ S.sel=+t.dataset.chip; return simRender(); }
+  if(t.dataset.blank!==undefined){
+    const bi=+t.dataset.blank;
+    if(S.sel!==null) return simPlace(S.sel,bi);
+    if(S.b[bi]!==null){ S.b[bi]=null; return simRender(); }
+  }
+  if(t.dataset.mc!==undefined){ S.pick=+t.dataset.mc; return simRender(); }
+  if(t.dataset.tok!==undefined){ const k=+t.dataset.tok; S.m.has(k)?S.m.delete(k):S.m.add(k); return simRender(); }
+});
+// Drag & drop (desktop)
+$('#simPlay').addEventListener('dragstart',e=>{ const c=e.target.closest('[data-chip]'); if(c&&!S.locked){ e.dataTransfer.setData('text/plain',c.dataset.chip); e.dataTransfer.effectAllowed='move'; } });
+$('#simPlay').addEventListener('dragover',e=>{ const b=e.target.closest('.blank'); if(b){ e.preventDefault(); b.classList.add('over'); } });
+$('#simPlay').addEventListener('dragleave',e=>{ const b=e.target.closest('.blank'); if(b) b.classList.remove('over'); });
+$('#simPlay').addEventListener('drop',e=>{ const b=e.target.closest('.blank'); if(!b||!S||S.locked) return; e.preventDefault();
+  const chip=parseInt(e.dataTransfer.getData('text/plain'),10); if(!isNaN(chip)) simPlace(chip,+b.dataset.blank); });
+
+function predikat(s){ return s>=90?'Sangat Baik':s>=75?'Baik':s>=60?'Cukup':'Perlu Belajar Lagi'; }
+function simFinish(){
+  const skor=S.pts, pred=predikat(skor);
+  Snd.win(); confetti();
+  $('#simPlay').style.display='none'; $('#simResult').style.display='block';
+  $('#simResult').innerHTML=`<div class="card" style="padding:22px;text-align:center">
+    <div style="font-size:3.5rem">🎓</div>
+    <h2 style="font-weight:900;font-size:1.8rem;color:#1e3a8a">Simulasi Selesai!</h2>
+    <p style="font-weight:700;margin-top:4px">${esc(S.nama)}${S.kelas?' • '+esc(S.kelas):''}</p>
+    <div style="font-size:4rem;font-weight:900;color:#2563eb;line-height:1.1">${skor}</div>
+    <p style="font-weight:800">Benar ${S.ben} dari ${SIM.length} soal • Predikat: ${pred}</p>
+    <p id="sheetStatus" style="margin:10px 0;font-weight:700;color:#1d4ed8;font-size:.9rem">⏳ Menyimpan nilai...</p>
+    <h3 style="font-weight:900;color:#1e3a8a;margin:14px 0 8px">🏅 Sertifikat Pencapaian</h3>
+    <canvas id="certCanvas" width="1400" height="990" style="width:100%;max-width:760px;border-radius:12px;box-shadow:0 6px 18px rgba(30,64,175,.3)"></canvas>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px">
+      <button class="btn btn-green" data-r="png">⬇ Unduh Sertifikat (PNG)</button>
+      <button class="btn btn-sky" data-r="print">🖨 Cetak</button>
+      <button class="btn btn-light" data-r="csv">📄 Unduh Rekap (CSV)</button>
+      <button class="btn" data-r="again">🔁 Ulangi Simulasi</button></div></div>`;
+  drawCert($('#certCanvas'),S.nama,skor,pred);
+  saveScore({waktu:new Date().toLocaleString('id-ID'),nama:S.nama,kelas:S.kelas,skor,benar:S.ben,predikat:pred,mapel:'IPAS',topik:'Keanekaragaman Hayati Indonesia'});
+}
+$('#simResult').addEventListener('click',e=>{
+  const b=e.target.closest('[data-r]'); if(!b) return;
+  if(b.dataset.r==='again') return simReset();
+  if(b.dataset.r==='print') return window.print();
+  if(b.dataset.r==='png'){ const a=document.createElement('a'); a.href=$('#certCanvas').toDataURL('image/png'); a.download='Sertifikat-'+S.nama.replace(/\s+/g,'_')+'.png'; a.click(); return; }
+  if(b.dataset.r==='csv') return downloadCSV();
+});
+async function saveScore(d){
+  let list=[]; try{ list=JSON.parse(localStorage.getItem('mpi_nilai')||'[]'); }catch(e){}
+  list.push(d); try{ localStorage.setItem('mpi_nilai',JSON.stringify(list)); }catch(e){}
+  const st=$('#sheetStatus');
+  if(!SHEET_URL){ st.textContent='💾 Nilai tersimpan di perangkat ini. (Guru: isi SHEET_URL agar nilai masuk otomatis ke Google Sheet.)'; return; }
+  try{
+    await fetch(SHEET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(d)});
+    st.textContent='✅ Nilai terkirim ke Google Sheet.';
+  }catch(err){ st.textContent='⚠️ Gagal mengirim ke Sheet (cek koneksi). Nilai tetap tersimpan di perangkat.'; }
+}
+function downloadCSV(){
+  let list=[]; try{ list=JSON.parse(localStorage.getItem('mpi_nilai')||'[]'); }catch(e){}
+  const h=['waktu','nama','kelas','skor','benar','predikat','mapel','topik'];
+  const csv='\uFEFF'+[h.join(',')].concat(list.map(r=>h.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(','))).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='rekap-nilai-ipas.csv'; a.click();
+}
+
+/* Sertifikat digambar pada canvas */
+function drawCert(c,nama,skor,pred){
+  const x=c.getContext('2d'), W=c.width, H=c.height, ctr=(t,y)=>x.fillText(t,W/2,y);
+  const g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'#eff6ff'); g.addColorStop(1,'#dbeafe'); x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.strokeStyle='#1e3a8a'; x.lineWidth=22; x.strokeRect(25,25,W-50,H-50);
+  x.strokeStyle='#facc15'; x.lineWidth=6; x.strokeRect(58,58,W-116,H-116);
+  x.strokeStyle='#60a5fa'; x.lineWidth=3; x.strokeRect(76,76,W-152,H-152);
+  x.textAlign='center'; x.fillStyle='#1e3a8a';
+  x.font='90px serif'; ctr('🌏',200);
+  x.font='bold 82px Georgia,serif'; ctr('SERTIFIKAT PENCAPAIAN',320);
+  x.fillStyle='#2563eb'; x.font='34px Georgia,serif'; ctr('IPAS • Keanekaragaman Hayati Indonesia',382);
+  x.fillStyle='#334155'; x.font='italic 38px Georgia,serif'; ctr('Diberikan dengan bangga kepada',470);
+  let fs=96; x.font=`bold ${fs}px Georgia,serif`; while(x.measureText(nama).width>W-300&&fs>34){fs-=4;x.font=`bold ${fs}px Georgia,serif`;}
+  x.fillStyle='#1d4ed8'; ctr(nama,590);
+  x.strokeStyle='#facc15'; x.lineWidth=4; x.beginPath(); x.moveTo(300,625); x.lineTo(W-300,625); x.stroke();
+  x.fillStyle='#334155'; x.font='36px Georgia,serif';
+  ctr('yang telah menyelesaikan Simulasi Keanekaragaman Hayati Indonesia',700);
+  ctr('dengan skor '+skor+' dari 100 (predikat: '+pred+')',752);
+  x.fillStyle='#facc15'; x.beginPath(); x.arc(W/2,850,62,0,Math.PI*2); x.fill(); x.strokeStyle='#ca8a04'; x.lineWidth=5; x.stroke();
+  x.fillStyle='#1e3a8a'; x.font='bold 52px Georgia,serif'; ctr(String(skor),868);
+  x.textAlign='left'; x.fillStyle='#334155'; x.font='30px Georgia,serif';
+  x.fillText(new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),150,880);
+  x.textAlign='right'; x.fillStyle='#1e3a8a'; x.font='bold 32px Georgia,serif'; x.fillText('Siti Fatonah S.Si',W-150,870);
+  x.font='26px Georgia,serif'; x.fillStyle='#334155'; x.fillText('Pengembang MPI • 2026',W-150,908);
+}
+</script>
+</body>
+</html>
